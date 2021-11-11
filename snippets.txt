@@ -1,0 +1,47 @@
+function preload() {
+
+    game.load.baseURL = 'http://examples.phaser.io/assets/';
+    game.load.crossOrigin = 'anonymous';
+
+    game.load.image('phaser', 'sprites/phaser-dude.png');
+
+}
+function create() {
+
+    var sprite = game.add.sprite(25, 100, 'phaser');
+    game.stage.backgroundColor = '#606060';
+    
+    
+    console.log(game.add)
+   
+    this.input.onDown.add(clicked, this);
+}
+var l = [];
+var lastX = -1;
+var lastY = -1;
+
+const maxLines = 10;
+
+function clicked (p) {
+    console.log(p.x, p.y, p);
+    if (p.button !== 0) {
+        return
+    }
+    if (lastX == -1) {
+        lastX = p.x;
+        lastY = p.y;
+        return
+    }
+    console.log("draw!")
+    let ll = new Phaser.Line(lastX, lastY, p.x, p.y, p.x, p.y, 0xff0000);
+    if (l.push(ll) > maxLines) {
+        l.shift();
+    }
+    lastX = p.x;
+    lastY = p.y;
+}
+function update() {
+}
+function render() {
+  l.forEach((x) => game.debug.geom(x, 32, 32));
+}
