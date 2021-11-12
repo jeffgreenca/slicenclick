@@ -1,15 +1,17 @@
-import { randomInt } from 'crypto';
 import Phaser from 'phaser';
 // import WinSound from './assets/audio/456965__funwithsound__short-success-sound-glockenspiel-treasure-video-game.mp3';
 import WinSound from './assets/audio/387232__steaq__badge-coin-win.wav';
 import LineSound from './assets/audio/344276__nsstudios__laser3.wav';
 import HitSound from './assets/audio/323809__jact878787__cointojar.mp3';
+import White from './assets/images/white.png';
+import Hedgehog from './assets/images/hedgehog.png';
 
 const worldSize = { w: 1024, h: 768 };
 
-const totalEnemies = 6;
+const minEnemyCount = 2;
+const hitsToWin = 20;
 
-class Alternative extends Phaser.Scene {
+class BubbleGame extends Phaser.Scene {
 
     constructor() {
         super();
@@ -17,46 +19,104 @@ class Alternative extends Phaser.Scene {
         this.lastPos = { x: -1, y: -1 };
         this.lineColor = 0xf807cc;
         this.totalLines = 0;
+        this.totalHits = 0;
+        this.totalHitsText = null;
         this.totalLineText = null;
+        this.level = 0;
+    }
+
+    randomBG() {
+        this.bg.clearTint();
+        const max = 80;
+        const min = 10;
+        this.bg.setTint(
+            Phaser.Display.Color.RandomRGB(min, max).color,
+            Phaser.Display.Color.RandomRGB(min, max).color,
+            Phaser.Display.Color.RandomRGB(min, max).color,
+            Phaser.Display.Color.RandomRGB(min, max).color,
+        )
     }
 
     preload() {
         this.load.audio("win", WinSound);
         this.load.audio("line", LineSound);
         this.load.audio("hit", HitSound);
+        this.load.image("white", White);
+        this.load.image("hedgehog", Hedgehog);
     }
 
     create() {
         this.sound.pauseOnBlur = false;
 
+        this.bg = this.add.image(-20,-20,"white").setOrigin(0).setScale(game.renderer.width/250,game.renderer.height/150).setAlpha(0.8);
+        this.randomBG()
+
         this.soundWin = this.sound.add("win", {loop: false});
         this.cameras.main.fadeFrom(800);
 
-        for (var i = 0; i < totalEnemies; i++) {
+        let enemyCount = minEnemyCount + (Phaser.Math.Between(1,2) * this.level)
+
+        for (var i = 0; i < enemyCount; i++) {
             this.enemies.push(this.makeEnemy())
         }
 
+        this.cursor = this.add.circle(-50,-50,4,0x00ff00, 0.4);
+        this.tracer = this.add.line(-1,-1,-1,-1,-1,-1,0x00ff00,0.4).setLineWidth(1).setOrigin(0);
+
+        this.add.text(5,5, "Lines").setShadow(0,0,'rgba(0,0,0,0.8)', 5);
+        this.totalLineText = this.add.text(105,5,this.totalLines).setShadow(2,2,'rgba(0,0,0,0.4)', 8);
+        this.add.text(5,22, "Sliced").setShadow(0,0,'rgba(0,0,0,0.8)', 5);
+        this.totalHitsText = this.add.text(105,22,this.totalHits).setShadow(2,2,'rgba(0,0,0,0.4)', 8);
+
+        this.info = this.add.text(game.renderer.width/2,game.renderer.height/2, "Click to start", {
+            color: "#ffffff",
+            fontSize: "50px",
+        }).setOrigin(0.5).setShadow(5, 5, 'rgba(0,0,0,0.8)', 10);
+        this.info.setVisible(!this.input.mouse.locked)
+
+        this.input.on(Phaser.Input.Events.POINTER_MOVE, this.move, this);
         this.input.on(Phaser.Input.Events.POINTER_DOWN, this.click, this);
-        this.add.text(0,0, "Lines:");
-        this.totalLineText = this.add.text(150,0,this.totalLines);
 
         this.cameras.main.on(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => this.restart());
     }
 
     restart () {
+        this.level++;
+        this.enemies.forEach((x) => x.obj.destroy());
         this.enemies = []
         this.lastPos = { x: -1, y: -1 };
         this.lineColor = 0xf807cc;
+        this.randomBG();
         this.scene.restart();
     }
 
-    click(pointer) {
-        console.log(pointer);
-        if (pointer.button !== 0) {
+    move(pointer) {
+        if (!this.input.mouse.locked) {
             return
         }
+        this.cursor.x += pointer.movementX;
+        this.cursor.y += pointer.movementY;
+        this.cursor.x = Phaser.Math.Clamp(this.cursor.x, 0, game.renderer.width);
+        this.cursor.y = Phaser.Math.Clamp(this.cursor.y, 0, game.renderer.height);
+        if (this.lastPos.x == -1) {
+            return
+        }
+        this.tracer.setTo(this.lastPos.x, this.lastPos.y, this.cursor.x, this.cursor.y);
+    }
+
+    click(pointer) {
+        if (!this.input.mouse.locked) {
+            this.input.mouse.requestPointerLock();
+            this.cursor.x = pointer.worldX;
+            this.cursor.y = pointer.worldY;
+            this.info.setVisible(false);
+            return;
+        }
+        if (pointer.button !== 0) {
+            return;
+        }
         // always do animation to show click
-        let c = this.add.circle(pointer.worldX, pointer.worldY, 8, this.lineColor);
+        let c = this.add.circle(this.cursor.x, this.cursor.y, 8, this.lineColor);
         this.tweens.add({
             targets: [c],
             scale: 0.4,
@@ -64,9 +124,13 @@ class Alternative extends Phaser.Scene {
             duration: 800,
             ease: Phaser.Math.Easing.Expo.Out,
         });
+        if (this.lastPos.x == -1 ) {
+            this.lastPos.x = this.cursor.x;
+            this.lastPos.y = this.cursor.y;
+        }
         if (this.lastPos.x != -1) {
             // Nth click
-            let line = this.makeLine(this.lastPos.x, this.lastPos.y, pointer.worldX, pointer.worldY);
+            let line = this.makeLine(this.lastPos.x, this.lastPos.y, this.cursor.x, this.cursor.y);
             this.sound.add("line", {loop: false}).play();
 
             // compute enemies hit
@@ -77,8 +141,10 @@ class Alternative extends Phaser.Scene {
                 if (v.hit) {
                     return
                 }
-                this.sound.add("hit").play({
-                    delay: Phaser.Math.Between(0, 0.03),
+                this.totalHits++;
+                this.totalHitsText.setText(this.totalHits);
+                v.hitSound.play({
+                    delay: Phaser.Math.FloatBetween(0, 0.2),
                 })
                 v.hit = true;
                 v.obj.fillColor = 0xff0000; 
@@ -98,8 +164,8 @@ class Alternative extends Phaser.Scene {
             });
             this.checkWin()
         }
-        this.lastPos.x = pointer.worldX;
-        this.lastPos.y = pointer.worldY;
+        this.lastPos.x = this.cursor.x;
+        this.lastPos.y = this.cursor.y;
     }
 
     makeLine(x1, y1, x2, y2) {
@@ -118,10 +184,11 @@ class Alternative extends Phaser.Scene {
     }
 
     makeEnemy() {
-        let r = randInt(18,50);
-        let g = new Phaser.Geom.Circle(randInt(r, worldSize.w - r), randInt(r, worldSize.h - r), r);
+        let r = Phaser.Math.Between(18,50);
+        let g = new Phaser.Geom.Circle(Phaser.Math.Between(r, worldSize.w - r), Phaser.Math.Between(r, worldSize.h - r), r);
         let obj = this.add.circle(g.x, g.y, g.radius, 0x0066ff);
-        return {obj: obj, geom: g, hit: false}
+        let h = this.sound.add("hit");
+        return {obj: obj, geom: g, hit: false, hitSound: h}
     }
 
     checkWin() {
@@ -133,11 +200,18 @@ class Alternative extends Phaser.Scene {
             // enemies still exist
             return
         }
+        if (this.totalHits > hitsToWin) {
+            this.add.image(game.renderer.width/2, game.renderer.height/2, "hedgehog").setOrigin(0.5);
+            this.add.text(game.renderer.width/2, game.renderer.height/2, "You Win!").setOrigin(0.5).setFontSize(50).setShadow(1,1,'rgba(0,0,0,0.4)',6);
+            this.soundWin.play();
+            this.cameras.main.shake(1200, 0.002, false)
+            this.tracer.setVisible(false)
+            this.input.mouse.releasePointerLock();
+            return
+        }
+        this.soundWin.play();
         this.cameras.main.shake(600, 0.002, false, (cam, done) => { 
             if (done > 0.3) {
-                if (!this.soundWin.isPlaying) {
-                    this.soundWin.play();
-                }
                 this.cameras.main.fade(2000, 255,255,255) 
             } 
         });
@@ -145,10 +219,6 @@ class Alternative extends Phaser.Scene {
 
     render () {
     }
-}
-
-function randInt(min, max) { // min and max included 
-    return Math.floor(Math.random() * (max - min + 1) + min)
 }
 
 const config = {
@@ -161,7 +231,7 @@ const config = {
         // mode: Phaser.Scale.FIT,
         autoCenter: Phaser.Scale.CENTER_BOTH,
     },
-    scene: Alternative
+    scene: BubbleGame
 };
 
 const game = new Phaser.Game(config);
