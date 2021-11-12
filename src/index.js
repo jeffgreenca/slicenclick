@@ -27,6 +27,97 @@ class MyGame extends Phaser.Scene {
     }
 }
 
+class Alternative extends Phaser.Scene {
+
+    constructor() {
+        super();
+        this.enemies = [];
+        this.lastPos = { x: -1, y: -1 };
+        this.lineColor = 0xf807cc;
+    }
+
+    create() {
+        for (var i = 0; i < 8; i++) {
+            this.enemies.push(this.makeEnemy())
+        }
+
+        this.input.on(Phaser.Input.Events.POINTER_DOWN, this.click, this);
+        /*
+        let gameobjectCircle = this.add.circle(worldSize.w / 2, worldSize.h / 2, 50, 0x101010);
+        let c = new Phaser.Geom.Circle(worldSize.w / 2, worldSize.h / 2, 50);
+        this.enemies.push(c);
+        // let line = this.add.line(0, 0, 10, 10, worldSize.w - 10, worldSize.h - 10, 0xff0000).setOrigin(0,0);
+
+        let tracer = new Phaser.Geom.Line(10,10,worldSize.w-10, worldSize.h-10);
+        console.log("INTERSECTS:", Phaser.Geom.Intersects.LineToCircle(tracer, c));
+
+        // let line2 = this.add.line(0, 0, 10, 5, worldSize.w - 300, worldSize.h - 10, 0xff0000).setOrigin(0,0);
+        // console.log("INTERSECTS:", Phaser.Geom.Intersects.LineToCircle(tracer, c));
+        // console.log("INTERSECTS:", Phaser.Geom.Intersects.LineToLine(line2, line));
+            // 
+        */
+    }
+
+    click(pointer) {
+        console.log(pointer);
+        if (pointer.button !== 0) {
+            return
+        }
+        // always do animation to show click
+        let c = this.add.circle(pointer.worldX, pointer.worldY, 8, this.lineColor);
+        this.tweens.add({
+            targets: [c],
+            scale: 0.4,
+            yoyo: false,
+            duration: 800,
+            ease: Phaser.Math.Easing.Expo.Out,
+        });
+        if (this.lastPos.x != -1) {
+            // Nth click
+            this.makeLine(this.lastPos.x, this.lastPos.y, pointer.worldX, pointer.worldY);
+        }
+        this.lastPos.x = pointer.worldX;
+        this.lastPos.y = pointer.worldY;
+    }
+
+    makeLine(x1, y1, x2, y2) {
+        let g = new Phaser.Geom.Line(x1, y1, x2, y2);
+        let o = this.add.line(0, 0, g.x1, g.y1, g.x2, g.y2, this.lineColor).setOrigin(0).setLineWidth(2);
+
+        let hits = this.enemies.filter((v) => Phaser.Geom.Intersects.LineToCircle(g, v.geom));
+        console.log("Hit ", hits.length);
+
+        hits.forEach((v) => v.obj.fillColor = 0xff0000);
+    }
+
+    makeEnemy() {
+        let r = randInt(18,50);
+        let g = new Phaser.Geom.Circle(randInt(r, worldSize.w - r), randInt(r, worldSize.h - r), r);
+        let obj = this.add.circle(g.x, g.y, g.radius, 0x0066ff);
+        return {obj: obj, geom: g}
+    }
+}
+
+function randInt(min, max) { // min and max included 
+    return Math.floor(Math.random() * (max - min + 1) + min)
+}
+
+class MatterLearn extends Phaser.Scene {
+    constructor() {
+        super();
+    }
+
+    create() {
+        this.matter.world.setBounds(0,0,worldSize.w, worldSize.h);
+
+        // this.matter.add.circle(worldSize.w / 2, worldSize.h / 2, 25, {isSensor: true, isStatic: true}, 10);
+        this.matter.add.polygon(worldSize.w / 2, worldSize.h / 2, 16, 25, {isSensor: true, isStatic: true});
+        // this.matter.add.polygon(worldSize.w / 2, worldSize.h / 2, 16, 25);
+        //
+        // this.matter.add.line(100, 100, 0, 0, 100, 100, 0xff0000);
+    }
+}
+
 class ClickLine extends Phaser.Scene {
     constructor() {
         super();
@@ -125,6 +216,7 @@ const config = {
         // mode: Phaser.Scale.FIT,
         autoCenter: Phaser.Scale.CENTER_BOTH,
     },
+    /*
     physics: {
         default: 'matter',
         matter: {
@@ -136,7 +228,8 @@ const config = {
         }
 
     },
-    scene: ClickLine
+    */
+    scene: Alternative
 };
 
 const game = new Phaser.Game(config);
