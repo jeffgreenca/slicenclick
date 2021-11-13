@@ -20,12 +20,14 @@ class BubbleGame extends Phaser.Scene {
         this.lineColor = 0xf807cc;
         this.totalLines = 0;
         this.totalHits = 0;
-        this.totalHitsText = null;
-        this.totalLineText = null;
+        this.lifetimeTotalLines = 0;
+        this.lifetimeTotalHits = 0;
+        // this.totalHitsText = null;
+        // this.totalLineText = null;
         this.level = 0;
     }
 
-    randomBG() {
+    randomBackground() {
         this.bg.clearTint();
         const max = 80;
         const min = 10;
@@ -49,7 +51,7 @@ class BubbleGame extends Phaser.Scene {
         this.sound.pauseOnBlur = false;
 
         this.bg = this.add.image(-20,-20,"white").setOrigin(0).setScale(game.renderer.width/250,game.renderer.height/150).setAlpha(0.8);
-        this.randomBG()
+        this.randomBackground()
 
         this.soundWin = this.sound.add("win", {loop: false});
         this.cameras.main.fadeFrom(800);
@@ -63,10 +65,10 @@ class BubbleGame extends Phaser.Scene {
         this.cursor = this.add.circle(-50,-50,4,0x00ff00, 0.4);
         this.tracer = this.add.line(-1,-1,-1,-1,-1,-1,0x00ff00,0.4).setLineWidth(1).setOrigin(0);
 
-        this.add.text(5,5, "Lines").setShadow(0,0,'rgba(0,0,0,0.8)', 5);
-        this.totalLineText = this.add.text(105,5,this.totalLines).setShadow(2,2,'rgba(0,0,0,0.4)', 8);
-        this.add.text(5,22, "Sliced").setShadow(0,0,'rgba(0,0,0,0.8)', 5);
-        this.totalHitsText = this.add.text(105,22,this.totalHits).setShadow(2,2,'rgba(0,0,0,0.4)', 8);
+        // this.add.text(5,5, "Lines").setShadow(0,0,'rgba(0,0,0,0.8)', 5);
+        // this.totalLineText = this.add.text(105,5,this.totalLines).setShadow(2,2,'rgba(0,0,0,0.4)', 8);
+        // this.add.text(5,22, "Sliced").setShadow(0,0,'rgba(0,0,0,0.8)', 5);
+        // this.totalHitsText = this.add.text(105,22,this.totalHits).setShadow(2,2,'rgba(0,0,0,0.4)', 8);
 
         this.info = this.add.text(game.renderer.width/2,game.renderer.height/2, "Click to start", {
             color: "#ffffff",
@@ -86,7 +88,7 @@ class BubbleGame extends Phaser.Scene {
         this.enemies = []
         this.lastPos = { x: -1, y: -1 };
         this.lineColor = 0xf807cc;
-        this.randomBG();
+        this.randomBackground();
         this.scene.restart();
     }
 
@@ -142,7 +144,7 @@ class BubbleGame extends Phaser.Scene {
                     return
                 }
                 this.totalHits++;
-                this.totalHitsText.setText(this.totalHits);
+                // this.totalHitsText.setText(this.totalHits);
                 v.hitSound.play({
                     delay: Phaser.Math.FloatBetween(0, 0.2),
                 })
@@ -172,7 +174,7 @@ class BubbleGame extends Phaser.Scene {
         let g = new Phaser.Geom.Line(x1, y1, x2, y2);
         let o = this.add.line(0, 0, g.x1, g.y1, g.x2, g.y2, this.lineColor).setOrigin(0).setLineWidth(3);
         this.totalLines++;
-        this.totalLineText.setText(this.totalLines);
+        // this.totalLineText.setText(this.totalLines);
         this.tweens.add({
             targets: [o],
             duration: 1200,
@@ -200,7 +202,12 @@ class BubbleGame extends Phaser.Scene {
             // enemies still exist
             return
         }
+        // WIN... of some sort so do recordkeeping
+        this.lifetimeTotalHits += this.totalHits;
+        this.lifetimeTotalLines += this.totalLines;
+
         if (this.totalHits > hitsToWin) {
+            // win - game over
             this.add.image(game.renderer.width/2, game.renderer.height/2, "hedgehog").setOrigin(0.5);
             this.add.text(game.renderer.width/2, game.renderer.height/2, "You Win!").setOrigin(0.5).setFontSize(50).setShadow(1,1,'rgba(0,0,0,0.4)',6);
             this.soundWin.play();
@@ -209,6 +216,7 @@ class BubbleGame extends Phaser.Scene {
             this.input.mouse.releasePointerLock();
             return
         }
+        // win - advance to next level
         this.soundWin.play();
         this.cameras.main.shake(600, 0.002, false, (cam, done) => { 
             if (done > 0.3) {
