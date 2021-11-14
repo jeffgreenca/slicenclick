@@ -105,6 +105,7 @@ class BubbleGame extends Phaser.Scene {
     initMenu() {
         const offscreen = 100;
         let menu = [];
+        // maybe scene.input.on('pointerdown', function(pointer, currentlyOver){ /* ... */ });
         menu.push(this.add.rectangle(offscreen, offscreen, 500, 200, 0xffffff, 1).setOrigin(0))
         menu.push(this.add.rectangle(offscreen + 10, offscreen + 10, 50, 50, 0xff0000, 1).setOrigin(0).setInteractive().on(Phaser.Input.Events.POINTER_DOWN, 
             function(pointer, gameObject){
