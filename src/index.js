@@ -4,9 +4,10 @@ import WinSound from './assets/audio/387232__steaq__badge-coin-win.wav';
 import FireSound from './assets/audio/344276__nsstudios__laser3.wav';
 import HitSound from './assets/audio/323809__jact878787__cointojar.mp3';
 import White from './assets/images/white.png';
-import Hedgehog from './assets/images/hedgehog.png';
+import Hedgehog from './assets/images/hedgehog-2.png';
 
 const worldSize = { w: 1024, h: 768 };
+const offscreen = -500;
 
 const minEnemyCount = 2;
 const hitsToWin = 20;
@@ -41,40 +42,46 @@ class BubbleGame extends Phaser.Scene {
     }
 
     create() {
+        // general options
         this.sound.pauseOnBlur = false;
 
+        // background
         this.bg = this.add.image(-20, -20, "white").setOrigin(0).setScale(game.renderer.width / 250, game.renderer.height / 150).setAlpha(0.8);
         this.refreshBackground()
 
+        // setup this level
         this.soundWin = this.sound.add("win", { loop: false });
         this.cameras.main.fadeFrom(800);
 
         let enemyCount = minEnemyCount + (Phaser.Math.Between(1, 2) * this.level)
-
         for (var i = 0; i < enemyCount; i++) {
             this.enemies.push(this.makeEnemy())
         }
 
-        this.initMenu();
+        // setup context menu
+        // this.initMenu();
 
+        // setup cursor and line objects
         this.cursor = this.add.circle(-50, -50, 4, 0x00ff00, 0.4);
         this.tracer = this.add.line(-1, -1, -1, -1, -1, -1, 0x00ff00, 0.4).setLineWidth(1).setOrigin(0);
 
+        // setup HUD
         // this.add.text(5,5, "Lines").setShadow(0,0,'rgba(0,0,0,0.8)', 5);
         // this.totalLineText = this.add.text(105,5,this.totalLines).setShadow(2,2,'rgba(0,0,0,0.4)', 8);
         // this.add.text(5,22, "Sliced").setShadow(0,0,'rgba(0,0,0,0.8)', 5);
         // this.totalHitsText = this.add.text(105,22,this.totalHits).setShadow(2,2,'rgba(0,0,0,0.4)', 8);
 
+        // Click to Start overlay
         this.info = this.add.text(game.renderer.width / 2, game.renderer.height / 2, "Click to start", {
             color: "#ffffff",
             fontSize: "50px",
         }).setOrigin(0.5).setShadow(5, 5, 'rgba(0,0,0,0.8)', 10);
         this.info.setVisible(!this.input.mouse.locked)
 
+        // global input
         this.input.on(Phaser.Input.Events.POINTER_MOVE, this.move, this);
-        // this.input.on(Phaser.Input.Events.POINTER_DOWN, this.click, this);
-
-        this.cameras.main.on(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => this.advance());
+        this.input.on(Phaser.Input.Events.POINTER_DOWN, this.click, this);
+        this.input.keyboard.on("keydown-C", this.toggleColorMenu, this)
     }
 
     // ---- event handlers
@@ -85,9 +92,12 @@ class BubbleGame extends Phaser.Scene {
         }
     }
 
-    click(pointer) {
+    click(pointer, a, b, c) {
+        console.log(pointer, a, b, c);
         if (this.isMenu) {
-            // if menu is open, clicking is direct to gameobjects (I hope)
+            console.log("click away close menu");
+            this.endMenu();
+            this.captureMouse(pointer);
             return
         }
         if (!this.input.mouse.locked) {
@@ -100,27 +110,66 @@ class BubbleGame extends Phaser.Scene {
         }
     }
 
+    toggleColorMenu(e) {
+        if (this.isMenu) {
+            this.endMenu()
+        } else {
+            this.showMenu(worldSize.w / 4, worldSize.h / 3);
+        }
+    }
+
     // ---- game logic
-
     initMenu() {
-        const offscreen = 100;
         let menu = [];
-        // maybe scene.input.on('pointerdown', function(pointer, currentlyOver){ /* ... */ });
-        menu.push(this.add.rectangle(offscreen, offscreen, 500, 200, 0xffffff, 1).setOrigin(0))
-        menu.push(this.add.rectangle(offscreen + 10, offscreen + 10, 50, 50, 0xff0000, 1).setOrigin(0).setInteractive().on(Phaser.Input.Events.POINTER_DOWN, 
-            function(pointer, gameObject){
-                console.log("go", gameObject);
+        menu.push(
+            this.add.rectangle(offscreen, offscreen, 10 + ((10+50) * 8), 10 + ((10+50) * 5), 0x000000, 1)
+                .setOrigin(0).setDepth(1000).setInteractive().on(
+                    Phaser.Input.Events.POINTER_DOWN,
+                    ({},{},{},event) => event.stopPropagation()
+                )
+        );
+        for (let row = 0; row < 5; row++) {
+        for (let col = 0; col < 8; col++) {
+            let color = Phaser.Display.Color.RandomRGB(0,255);
+            while ((color.red + color.blue + color.green ) < 250) {
+                color = Phaser.Display.Color.RandomRGB(0,255);
             }
-            ))
-        menu.push(this.add.rectangle(offscreen + 10 + 10 + 50, offscreen + 10, 50, 50, 0x0000ff, 1).setOrigin(0))
+            menu.push(
+                this.add.rectangle(offscreen + 10 + ((10 + 50) * col), offscreen + 10 + ((10+50) * row), 50, 50, color.color, 1)
+                    .setOrigin(0)
+                    .setDepth(1001)
+                    .setInteractive()
+                    .on(
+                        Phaser.Input.Events.POINTER_DOWN,
+                        function (pointer, { }, { }, event) {
+                            console.log("set color")
+                            this.lineColor = color.color,
+                            this.tracer.setStrokeStyle(this.tracer.lineWidth, color.color, this.tracer.alpha),
+                            event.stopPropagation();
+                            this.endMenu();
+                            this.captureMouse(pointer);
+                        },
+                        this
+                    )
+            );
+        }
+            
+        }
+        this.menu = menu;
+        this.menuRelativePositions = menu.map((o) => ({ x: o.x - offscreen, y: o.y - offscreen }))
     }
 
-    showMenu() {
-
+    showMenu(x, y) {
+        this.input.mouse.releasePointerLock();
+        this.initMenu();
+        this.menu.forEach((o, index) => o.setX(x + this.menuRelativePositions[index].x).setY(y + this.menuRelativePositions[index].y));
+        this.isMenu = true;
     }
 
-    hideMenu() {
-
+    endMenu() {
+        // this.menu.forEach((o, index) => o.setX(offscreen + this.menuRelativePositions[index].x).setY(offscreen + this.menuRelativePositions[index].y));
+        this.menu.forEach((o) => o.destroy());
+        this.isMenu = false;
     }
 
     fire() {
@@ -282,6 +331,7 @@ class BubbleGame extends Phaser.Scene {
         }
         // win - advance to next level
         this.soundWin.play();
+        this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => this.advance());
         this.cameras.main.shake(600, 0.002, false, (cam, done) => {
             if (done > 0.3) {
                 this.cameras.main.fade(2000, 255, 255, 255)
